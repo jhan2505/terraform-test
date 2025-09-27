@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hola Mundo - Terraform AWS</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 50px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .status {
+            background: #e8f5e8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #28a745;
+        }
+        .error {
+            background: #ffe8e8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #dc3545;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .timestamp {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Hola Mundo desde AWS!</h1>
+        <p>Infraestructura desplegada con Terraform</p>
+        
+        <div class="status">
+            <strong>✅ Aplicación funcionando correctamente</strong>
+        </div>
+        
+        <div id="db-status" class="info">
+            <h3>🗄️ Estado de la Base de Datos</h3>
+            <p id="db-connection">Verificando conexión...</p>
+        </div>
+        
+        <div class="info">
+            <h3>📊 Información del Sistema</h3>
+            <p><strong>Servidor:</strong> Amazon Linux 2 + Docker</p>
+            <p><strong>Base de Datos:</strong> MySQL RDS</p>
+            <p><strong>Infraestructura:</strong> Terraform + AWS</p>
+        </div>
+        
+        <div class="timestamp">
+            <p>Desplegado: <span id="timestamp"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // Mostrar timestamp
+        document.getElementById('timestamp').textContent = new Date().toLocaleString('es-ES');
+        
+        // Simular verificación de base de datos
+        setTimeout(function() {
+            const dbStatus = document.getElementById('db-connection');
+            const dbContainer = document.getElementById('db-status');
+            
+            // Simular conexión exitosa (en un caso real, harías una llamada AJAX)
+            dbStatus.innerHTML = '<strong>✅ Conectado a MySQL RDS</strong><br>Host: rds-endpoint<br>Puerto: 3306';
+            dbContainer.className = 'status';
+        }, 2000);
+    </script>
+</body>
+</html>

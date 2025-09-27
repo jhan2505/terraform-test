@@ -1,0 +1,43 @@
+# Archivo de ejemplo para variables de Terraform
+# Copiar este archivo como terraform.tfvars y configurar los valores
+
+# Configuración básica
+aws_region   = "us-west-2"
+project_name = "terraform-aws-infrastructure"
+environment  = "dev"
+
+# IPs permitidas para SSH (CAMBIAR POR IPs REALES)
+allowed_ssh_ips = [
+  "203.0.113.0/24",  # Ejemplo: rango de IPs de la oficina
+  "198.51.100.0/24"  # Ejemplo: rango de IPs de casa
+]
+
+# Configuración de VPC
+vpc_cidr = "10.0.0.0/16"
+availability_zones = ["us-west-2a", "us-west-2b"]
+
+# Configuración de EC2
+instance_type  = "t3.medium"
+key_pair_name  = "terraform-key"
+
+# Configuración de RDS
+db_instance_class      = "db.t3.micro"
+db_allocated_storage   = 20
+db_max_allocated_storage = 50
+db_engine_version      = "8.0"
+db_name               = "terraformdb"
+db_username           = "admin"
+db_password           = "YourSecurePassword123!"  # CAMBIAR POR PASSWORD SEGURO
+
+# Configuración de ECR
+ecr_repository_name = "terraform-docker-app"
+
+# Tags personalizados
+common_tags = {
+  Project     = "terraform-aws-infrastructure"
+  Environment = "dev"
+  ManagedBy   = "terraform"
+  Owner       = "devops-team"
+  CostCenter  = "engineering"
+}
+

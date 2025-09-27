@@ -1,0 +1,301 @@
+name: 'Terraform AWS Infrastructure'
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - '**/*.tf'
+      - '**/*.tfvars'
+      - '**/*.sh'
+      - '**/Dockerfile'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - '**/*.tf'
+      - '**/*.tfvars'
+      - '**/*.sh'
+      - '**/Dockerfile'
+      - '.github/workflows/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+          - docker
+
+env:
+  TF_VERSION: '1.6.0'
+  AWS_REGION: 'us-west-2'
+  DOCKER_REGISTRY: '123456789012.dkr.ecr.us-west-2.amazonaws.com'
+
+jobs:
+  # Job de validación
+  validate:
+    name: 'Validate Terraform'
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.changes.outputs.terraform }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        working-directory: ./
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ./
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --name-only HEAD~1 HEAD | grep -E '\.(tf|tfvars)$'; then
+            echo "terraform=true" >> $GITHUB_OUTPUT
+          else
+            echo "terraform=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Job de seguridad
+  security:
+    name: 'Security Scan'
+    runs-on: ubuntu-latest
+    needs: validate
+    if: needs.validate.outputs.should-deploy == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Job de planificación
+  plan:
+    name: 'Terraform Plan'
+    runs-on: ubuntu-latest
+    needs: [validate, security]
+    if: needs.validate.outputs.should-deploy == 'true'
+    
+    strategy:
+      matrix:
+        environment: [dev, staging]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./
+
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -var="environment=${{ matrix.environment }}" \
+            -out="terraform-${{ matrix.environment }}.tfplan"
+        working-directory: ./
+
+      - name: Upload Plan Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-plan-${{ matrix.environment }}
+          path: terraform-${{ matrix.environment }}.tfplan
+
+  # Job de aplicación (solo en main)
+  apply:
+    name: 'Terraform Apply'
+    runs-on: ubuntu-latest
+    needs: [validate, security, plan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    strategy:
+      matrix:
+        environment: [dev, staging]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Download Plan Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: terraform-plan-${{ matrix.environment }}
+          path: ./
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve terraform-${{ matrix.environment }}.tfplan
+        working-directory: ./
+
+      - name: Terraform Output
+        run: terraform output
+        working-directory: ./
+
+  # Job de construcción de Docker
+  docker:
+    name: 'Build and Push Docker Image'
+    runs-on: ubuntu-latest
+    needs: [validate, security]
+    if: needs.validate.outputs.should-deploy == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: terraform-docker-app
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./docker/
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+      - name: Update deployment with new image
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "Latest image: $ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+  # Job de testing
+  test:
+    name: 'Integration Tests'
+    runs-on: ubuntu-latest
+    needs: [apply, docker]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get EC2 Public IP
+        id: get-ip
+        run: |
+          INSTANCE_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=terraform-aws-infrastructure-dev-ec2" \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
+          echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
+
+      - name: Wait for instance to be ready
+        run: |
+          echo "Waiting for instance to be ready..."
+          sleep 60
+
+      - name: Test HTTP endpoint
+        run: |
+          curl -f http://${{ steps.get-ip.outputs.instance_ip }}/health || exit 1
+          echo "Health check passed"
+
+      - name: Test application endpoint
+        run: |
+          curl -f http://${{ steps.get-ip.outputs.instance_ip }}/ || exit 1
+          echo "Application endpoint test passed"
+
+  # Job de notificaciones
+  notify:
+    name: 'Send Notifications'
+    runs-on: ubuntu-latest
+    needs: [validate, security, plan, apply, docker, test]
+    if: always()
+    
+    steps:
+      - name: Notify Success
+        if: ${{ needs.apply.result == 'success' && needs.test.result == 'success' }}
+        run: |
+          echo "✅ Deployment successful!"
+          echo "Environment: ${{ matrix.environment }}"
+          echo "Commit: ${{ github.sha }}"
+
+      - name: Notify Failure
+        if: ${{ needs.validate.result == 'failure' || needs.security.result == 'failure' || needs.plan.result == 'failure' || needs.apply.result == 'failure' || needs.docker.result == 'failure' || needs.test.result == 'failure' }}
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Check the logs for details"
+          exit 1
+
