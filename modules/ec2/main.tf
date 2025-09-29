@@ -100,13 +100,13 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 # User Data script para EC2
 locals {
   user_data = base64encode(templatefile("${path.module}/user_data.sh", {
-    project_name        = var.project_name
-    environment         = var.environment
-    rds_endpoint        = var.rds_endpoint
-    rds_username        = var.rds_username
-    rds_password        = var.rds_password
-    rds_database        = var.rds_database
-    ecr_repository_url  = var.ecr_repository_url
+    project_name     = var.project_name
+    environment      = var.environment
+    rds_endpoint     = var.rds_endpoint
+    rds_username     = var.rds_username
+    rds_password     = var.rds_password
+    rds_database     = var.rds_database
+    docker_image_url = var.docker_image_url
   }))
 }
 

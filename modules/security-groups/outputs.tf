@@ -8,11 +8,6 @@ output "rds_security_group_id" {
   value       = aws_security_group.rds.id
 }
 
-output "alb_security_group_id" {
-  description = "ID del Security Group para ALB"
-  value       = aws_security_group.alb.id
-}
-
 output "ec2_security_group_arn" {
   description = "ARN del Security Group para EC2"
   value       = aws_security_group.ec2.arn
@@ -21,10 +16,5 @@ output "ec2_security_group_arn" {
 output "rds_security_group_arn" {
   description = "ARN del Security Group para RDS"
   value       = aws_security_group.rds.arn
-}
-
-output "alb_security_group_arn" {
-  description = "ARN del Security Group para ALB"
-  value       = aws_security_group.alb.arn
 }
 

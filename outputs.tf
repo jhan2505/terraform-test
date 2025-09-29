@@ -57,15 +57,15 @@ output "rds_database_name" {
   value       = module.rds.rds_database_name
 }
 
-# Outputs de ECR
-output "ecr_repository_url" {
-  description = "URL del repositorio ECR"
-  value       = module.ecr.repository_url
+# Outputs de Docker Hub
+output "docker_image_url" {
+  description = "URL de la imagen Docker en Docker Hub"
+  value       = "jmarrufo/terraform:latest"
 }
 
-output "ecr_repository_arn" {
-  description = "ARN del repositorio ECR"
-  value       = module.ecr.repository_arn
+output "docker_hub_url" {
+  description = "URL del repositorio en Docker Hub"
+  value       = "https://hub.docker.com/r/jmarrufo/terraform"
 }
 
 # Outputs de aplicación
@@ -74,9 +74,9 @@ output "application_url" {
   value       = "http://${module.ec2.public_ip}"
 }
 
-output "application_health_check" {
-  description = "URL del health check de la aplicación"
-  value       = "http://${module.ec2.public_ip}/health"
+output "application_database_check" {
+  description = "URL de verificación de conexión a base de datos"
+  value       = "http://${module.ec2.public_ip}/db_check.sh"
 }
 
 # Outputs de información de conexión
@@ -95,9 +95,10 @@ output "database_connection_info" {
 output "docker_image_info" {
   description = "Información de la imagen Docker"
   value = {
-    repository_url = module.ecr.repository_url
+    repository_url = "jmarrufo/terraform"
     image_tag      = "latest"
-    pull_command   = "docker pull ${module.ecr.repository_url}:latest"
+    pull_command   = "docker pull jmarrufo/terraform:latest"
+    docker_hub_url = "https://hub.docker.com/r/jmarrufo/terraform"
   }
 }
 

@@ -51,7 +51,7 @@ resource "aws_subnet" "private" {
 resource "aws_eip" "nat" {
   count = length(var.availability_zones)
 
-  domain = "vpc"
+  domain     = "vpc"
   depends_on = [aws_internet_gateway.main]
 
   tags = merge(var.common_tags, {

@@ -7,8 +7,9 @@ Este proyecto implementa una infraestructura completa en AWS utilizando Terrafor
 - **Servicio de cómputo**: EC2 con Amazon Linux
 - **Base de datos**: RDS MySQL
 - **Políticas de seguridad**: Security Groups con restricciones SSH por IP
-- **Imagen Docker personalizada**: Con herramientas de desarrollo completas
-- **Conectividad**: Entre Docker y RDS
+- **Imagen Docker optimizada**: Con Apache HTTP Server y MySQL client
+- **Verificación de Base de Datos**: Script automatizado de conexión a MySQL RDS
+- **Conectividad**: Entre Docker y RDS con verificación en tiempo real
 
 ## 🏗️ Arquitectura
 
@@ -17,7 +18,7 @@ Este proyecto implementa una infraestructura completa en AWS utilizando Terrafor
 │   Internet      │    │   VPC           │
 │                 │    │                 │
 │  ┌───────────┐  │    │  ┌───────────┐  │
-│  │   ALB     │──┼────┼──│  Public   │  │
+│  │   EC2     │──┼────┼──│  Public   │  │
 │  │           │  │    │  │  Subnet   │  │
 │  └───────────┘  │    │  └───────────┘  │
 └─────────────────┘    │                 │
@@ -33,21 +34,21 @@ Este proyecto implementa una infraestructura completa en AWS utilizando Terrafor
                        └─────────────────┘
 ```
 
-### Flujo de Herramientas de Desarrollo
+### Flujo de Aplicación Web
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   EC2 Instance  │    │  Docker Image   │    │   RDS MySQL     │
-│  (Amazon Linux) │    │  (All Tools)    │    │   (Database)    │
+│  (Amazon Linux) │    │  (Web App)      │    │   (Database)    │
 │                 │    │                 │    │                 │
 │  ┌───────────┐  │    │  ┌───────────┐  │    │  ┌───────────┐  │
-│  │  Docker   │──┼────┼──│  Git      │  │    │  │  MySQL    │  │
-│  │  Engine   │  │    │  │  VS Code  │  │    │  │  Database │  │
-│  └───────────┘  │    │  │  Maven    │  │    │  └───────────┘  │
-│                 │    │  │  Java     │  │    │                 │
-│  ┌───────────┐  │    │  │  .NET     │  │    │                 │
-│  │  AWS CLI  │  │    │  │  Postgres │  │    │                 │
-│  │  CloudWatch│  │    │  │  Apache   │  │    │                 │
+│  │  Docker   │──┼────┼──│  Apache   │  │    │  │  MySQL    │  │
+│  │  Engine   │  │    │  │  HTTP     │  │    │  │  Database │  │
+│  └───────────┘  │    │  │  Server   │  │    │  └───────────┘  │
+│                 │    │  └───────────┘  │    │                 │
+│  ┌───────────┐  │    │  ┌───────────┐  │    │                 │
+│  │  AWS CLI  │  │    │  │  Database │  │    │                 │
+│  │  CloudWatch│ │    │  │  Check    │  │    │                 │
 │  └───────────┘  │    │  └───────────┘  │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
@@ -73,9 +74,8 @@ terraform-test/
 ├── docker/
 │   ├── Dockerfile
 │   ├── index.html
-│   ├── health.json
-│   ├── api/
-│   │   └── status.json
+│   ├── db_check.sh
+│   ├── apache.conf
 │   └── build.sh
 ├── scripts/
 │   ├── deploy.sh
@@ -94,27 +94,39 @@ terraform-test/
 
 ## 🚀 Uso Rápido
 
-### Despliegue en 3 Pasos
+### Despliegue en 4 Pasos
 
-1. **Configurar variables**:
+1. **Configurar backend S3**:
    ```bash
-   cp terraform.tfvars.example terraform.tfvars
-   # Editar terraform.tfvars con tus valores
+   # Editar backend.tf con tu bucket único
+   nano backend.tf  # Cambiar bucket = "tu-bucket-unico"
    ```
 
-2. **Ejecutar despliegue**:
+2. **Configurar variables**:
+   ```bash
+   cp terraform.tfvars.example terraform.tfvars
+   nano terraform.tfvars  # Editar IPs y password
+   ```
+
+3. **Crear recursos de backend**:
+   ```bash
+   aws s3 mb s3://tu-bucket-unico
+   aws dynamodb create-table --table-name terraform-locks --attribute-definitions AttributeName=LockID,AttributeType=S --key-schema AttributeName=LockID,KeyType=HASH --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+   ```
+
+4. **Ejecutar despliegue**:
    ```bash
    chmod +x scripts/*.sh
    ./scripts/deploy.sh dev all
    ```
 
-3. **Verificar aplicación**:
+5. **Verificar aplicación**:
    ```bash
-   # Verificar conectividad HTTP
-   curl http://$(terraform output -raw ec2_public_ip)/health
-   
-   # Verificar aplicación web
+   # Verificar aplicación web principal
    curl http://$(terraform output -raw ec2_public_ip)/
+   
+   # Verificar conexión a base de datos
+   curl http://$(terraform output -raw ec2_public_ip)/db_check.sh
    ```
 
 ### Opciones de Despliegue
@@ -133,11 +145,13 @@ terraform-test/
 - **Escalabilidad**: Fácil escalado horizontal con más contenedores
 - **Integración**: Perfecta integración con ECR y otros servicios AWS
 
-### Docker Container (Imagen Personalizada)
-- **Herramientas encapsuladas**: Git, VS Code, Maven, Java, .NET, PostgreSQL, Apache
+### Docker Container (Imagen Optimizada)
+- **Servidor web**: Apache HTTP Server para servir la aplicación
+- **Cliente MySQL**: Para verificación de conexión a base de datos
+- **Verificación de Base de Datos**: Script automatizado de conectividad a MySQL
 - **Portabilidad**: La misma imagen funciona en cualquier entorno
-- **Versionado**: Control de versiones de herramientas y configuraciones
-- **Aislamiento**: Herramientas aisladas del sistema host
+- **Versionado**: Control de versiones de la aplicación y configuraciones
+- **Aislamiento**: Aplicación aislada del sistema host
 - **Reproducibilidad**: Entorno idéntico en desarrollo, staging y producción
 
 ### RDS MySQL
@@ -165,7 +179,7 @@ terraform {
     bucket         = "terraform-state-bucket-jhan"
     key            = "infrastructure/terraform.tfstate"
     region         = "us-west-2"
-    dynamodb_table = "terraform-locks"
+    use_lockfile   = true
     encrypt        = true
   }
 }
@@ -239,5 +253,4 @@ Para instrucciones detalladas de despliegue, ver **[DEPLOYMENT.md](DEPLOYMENT.md
 
 ---
 
-**Fecha de entrega**: 29 de Septiembre de 2025  
 **Versión**: 1.0.0

@@ -12,7 +12,7 @@ RDS_ENDPOINT="${rds_endpoint}"
 RDS_USERNAME="${rds_username}"
 RDS_PASSWORD="${rds_password}"
 RDS_DATABASE="${rds_database}"
-ECR_REPOSITORY_URL="${ecr_repository_url}"
+DOCKER_IMAGE_URL="${docker_image_url}"
 
 # Logging
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
@@ -42,8 +42,8 @@ unzip awscliv2.zip
 ./aws/install
 rm -rf aws awscliv2.zip
 
-# Configurar ECR login
-aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $ECR_REPOSITORY_URL
+# Docker Hub no requiere login para imágenes públicas
+# Si la imagen es privada, usar: docker login
 
 # Crear directorio para la aplicación
 mkdir -p /opt/app
@@ -59,31 +59,31 @@ DB_PASS=$RDS_PASSWORD
 EOF
 
 # Crear script de despliegue de Docker
-cat > /opt/app/deploy.sh << 'EOF'
+cat > /opt/app/deploy.sh << EOF
 #!/bin/bash
 set -e
 
 echo "🐳 Desplegando imagen Docker con todas las herramientas..."
 
-# Pull de la imagen desde ECR
-docker pull $ECR_REPOSITORY_URL:latest
+# Pull de la imagen desde Docker Hub
+docker pull $DOCKER_IMAGE_URL
 
 # Detener contenedores existentes
 docker stop app-container 2>/dev/null || true
 docker rm app-container 2>/dev/null || true
 
 # Ejecutar nuevo contenedor con todas las herramientas
-docker run -d \
-    --name app-container \
-    --restart unless-stopped \
-    -p 80:80 \
-    -p 8080:8080 \
-    --env-file /opt/app/db_config.env \
-    $ECR_REPOSITORY_URL:latest
+docker run -d \\
+    --name app-container \\
+    --restart unless-stopped \\
+    -p 80:80 \\
+    -p 8080:8080 \\
+    --env-file /opt/app/db_config.env \\
+    $DOCKER_IMAGE_URL
 
 echo "✅ Aplicación desplegada exitosamente!"
-echo "🌐 Aplicación web: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)"
-echo "🔧 VS Code Server: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8080"
+echo "🌐 Aplicación web: http://\$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)"
+echo "🔧 VS Code Server: http://\$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8080"
 EOF
 
 chmod +x /opt/app/deploy.sh
@@ -179,7 +179,7 @@ cat > /opt/app/deployment-status.json << EOF
     "environment": "$ENVIRONMENT",
     "deployment_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
     "status": "completed",
-    "docker_image": "$ECR_REPOSITORY_URL:latest",
+    "docker_image": "$DOCKER_IMAGE_URL",
     "services": {
         "docker": "running",
         "cloudwatch": "running"
@@ -191,4 +191,4 @@ echo "✅ User-data script completed successfully!"
 echo "🐳 Docker image will be deployed with all development tools:"
 echo "   - Git, VS Code, Maven, PostgreSQL, Java, .NET Core, Apache"
 echo "🌐 Application will be available at: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)"
-echo "📊 Health check: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)/health"
+echo "📊 Database check: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)/db_check.sh"

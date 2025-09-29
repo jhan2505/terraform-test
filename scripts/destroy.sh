@@ -105,7 +105,7 @@ destroy_infrastructure() {
     echo -e "${RED}   - Bases de datos RDS${NC}"
     echo -e "${RED}   - VPC y subnets${NC}"
     echo -e "${RED}   - Security Groups${NC}"
-    echo -e "${RED}   - ECR repositories${NC}"
+    echo -e "${RED}   - Docker Hub images${NC}"
     echo -e "${RED}   - Y todos los datos asociados${NC}"
     echo ""
     

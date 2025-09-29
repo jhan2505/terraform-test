@@ -214,17 +214,17 @@ build_docker() {
     log "Construyendo y subiendo imagen Docker..."
     cd "$PROJECT_DIR/docker"
     
-    # Obtener URL del repositorio ECR desde Terraform
+    # Obtener información de Docker Hub desde Terraform
     cd "$TERRAFORM_DIR"
-    ECR_URL=$(terraform output -raw ecr_repository_url 2>/dev/null || echo "")
+    DOCKER_IMAGE_URL=$(terraform output -raw docker_image_url 2>/dev/null || echo "")
     
-    if [ -z "$ECR_URL" ]; then
-        warning "No se pudo obtener URL del repositorio ECR. Asegúrate de que la infraestructura esté desplegada."
-        return 1
+    if [ -z "$DOCKER_IMAGE_URL" ]; then
+        warning "No se pudo obtener URL de la imagen Docker. Usando configuración por defecto."
+        DOCKER_IMAGE_URL="jmarrufo/terraform:latest"
     fi
     
     cd "$PROJECT_DIR/docker"
-    ./build.sh latest us-west-2 "$ECR_URL"
+    ./build.sh latest jmarrufo/terraform
     
     if [ $? -eq 0 ]; then
         success "Imagen Docker construida y subida correctamente"
@@ -241,6 +241,11 @@ run_pipeline() {
     init_terraform
     validate_terraform
     format_terraform
+    
+    # Construir imagen Docker ANTES de aplicar cambios
+    log "Construyendo imagen Docker antes del despliegue..."
+    build_docker
+    
     plan_terraform
     
     # Preguntar si aplicar cambios
@@ -248,7 +253,6 @@ run_pipeline() {
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         apply_terraform
-        build_docker
     else
         log "Pipeline completado sin aplicar cambios"
     fi

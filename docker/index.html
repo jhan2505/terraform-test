@@ -71,6 +71,7 @@
             <p><strong>Servidor:</strong> Amazon Linux 2 + Docker</p>
             <p><strong>Base de Datos:</strong> MySQL RDS</p>
             <p><strong>Infraestructura:</strong> Terraform + AWS</p>
+            <p><strong>Health Check:</strong> Verificación automática de base de datos</p>
         </div>
         
         <div class="timestamp">
@@ -82,15 +83,39 @@
         // Mostrar timestamp
         document.getElementById('timestamp').textContent = new Date().toLocaleString('es-ES');
         
-        // Simular verificación de base de datos
-        setTimeout(function() {
+        // Verificación real de base de datos
+        function checkDatabase() {
             const dbStatus = document.getElementById('db-connection');
             const dbContainer = document.getElementById('db-status');
             
-            // Simular conexión exitosa (en un caso real, harías una llamada AJAX)
-            dbStatus.innerHTML = '<strong>✅ Conectado a MySQL RDS</strong><br>Host: rds-endpoint<br>Puerto: 3306';
-            dbContainer.className = 'status';
-        }, 2000);
+            dbStatus.innerHTML = 'Verificando conexión real...';
+            
+            fetch('/db_check.sh')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'connected') {
+                        dbStatus.innerHTML = `
+                            <strong>✅ Conectado a MySQL RDS</strong><br>
+                            Host: ${data.database_info.host}<br>
+                            Puerto: ${data.database_info.port}<br>
+                            Base de datos: ${data.database_info.database}<br>
+                            Usuario: ${data.database_info.user}<br>
+                            Versión MySQL: ${data.database_info.mysql_version}<br>
+                            Tiempo actual: ${data.database_info.current_time}
+                        `;
+                        dbContainer.className = 'info';
+                    } else {
+                        dbStatus.innerHTML = `<strong>❌ Error de conexión:</strong> ${data.error}`;
+                        dbContainer.className = 'error';
+                    }
+                })
+                .catch(error => {
+                    dbStatus.innerHTML = `<strong>❌ Error de conexión:</strong> ${error.message}`;
+                    dbContainer.className = 'error';
+                });
+        }
+        
+        // Ejecutar verificación al cargar la página
+        checkDatabase();
     </script>
 </body>
-</html>

@@ -29,8 +29,9 @@ db_name               = "terraformdb"
 db_username           = "admin"
 db_password           = "YourSecurePassword123!"  # CAMBIAR POR PASSWORD SEGURO
 
-# Configuración de ECR
-ecr_repository_name = "terraform-docker-app"
+# Configuración de Docker Hub
+docker_image_name = "jmarrufo/terraform"
+docker_image_tag  = "latest"
 
 # Tags personalizados
 common_tags = {

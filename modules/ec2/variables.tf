@@ -59,8 +59,8 @@ variable "rds_database" {
   type        = string
 }
 
-variable "ecr_repository_url" {
-  description = "URL del repositorio ECR"
+variable "docker_image_url" {
+  description = "URL de la imagen Docker en Docker Hub"
   type        = string
 }
 

@@ -98,11 +98,17 @@ variable "db_password" {
   sensitive   = true
 }
 
-# Variables de ECR
-variable "ecr_repository_name" {
-  description = "Nombre del repositorio ECR"
+# Variables de Docker Hub
+variable "docker_image_name" {
+  description = "Nombre de la imagen Docker en Docker Hub"
   type        = string
-  default     = "terraform-docker-app"
+  default     = "jmarrufo/terraform"
+}
+
+variable "docker_image_tag" {
+  description = "Tag de la imagen Docker"
+  type        = string
+  default     = "latest"
 }
 
 # Variables de tags

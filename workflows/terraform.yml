@@ -42,7 +42,8 @@ on:
 env:
   TF_VERSION: '1.6.0'
   AWS_REGION: 'us-west-2'
-  DOCKER_REGISTRY: '123456789012.dkr.ecr.us-west-2.amazonaws.com'
+  DOCKER_USERNAME: 'jmarrufo'
+  DOCKER_IMAGE: 'terraform'
 
 jobs:
   # Job de validación
@@ -207,33 +208,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build, tag, and push image to Amazon ECR
+      - name: Build, tag, and push image to Docker Hub
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: terraform-docker-app
+          DOCKER_USERNAME: ${{ env.DOCKER_USERNAME }}
+          DOCKER_IMAGE: ${{ env.DOCKER_IMAGE }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./docker/
-          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker build -t $DOCKER_USERNAME/$DOCKER_IMAGE:$IMAGE_TAG ./docker/
+          docker tag $DOCKER_USERNAME/$DOCKER_IMAGE:$IMAGE_TAG $DOCKER_USERNAME/$DOCKER_IMAGE:latest
+          docker push $DOCKER_USERNAME/$DOCKER_IMAGE:$IMAGE_TAG
+          docker push $DOCKER_USERNAME/$DOCKER_IMAGE:latest
 
       - name: Update deployment with new image
         if: github.ref == 'refs/heads/main'
         run: |
-          echo "Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-          echo "Latest image: $ECR_REGISTRY/$ECR_REPOSITORY:latest"
+          echo "Image pushed: $DOCKER_USERNAME/$DOCKER_IMAGE:$IMAGE_TAG"
+          echo "Latest image: $DOCKER_USERNAME/$DOCKER_IMAGE:latest"
 
   # Job de testing
   test:
@@ -269,13 +265,13 @@ jobs:
 
       - name: Test HTTP endpoint
         run: |
-          curl -f http://${{ steps.get-ip.outputs.instance_ip }}/health || exit 1
-          echo "Health check passed"
-
-      - name: Test application endpoint
-        run: |
           curl -f http://${{ steps.get-ip.outputs.instance_ip }}/ || exit 1
           echo "Application endpoint test passed"
+
+      - name: Test database connection
+        run: |
+          curl -f http://${{ steps.get-ip.outputs.instance_ip }}/db_check.sh || exit 1
+          echo "Database connection test passed"
 
   # Job de notificaciones
   notify:
